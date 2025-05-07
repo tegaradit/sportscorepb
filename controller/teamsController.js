@@ -144,7 +144,7 @@ exports.bayar = async (req, res) => {
     const { kode_diskon } = req.body;
 
     let total_bayar = 50000;
-    let keterangan_diskon = null;
+    let keterangan_diskon = null;   
 
     if (kode_diskon) {
       const [diskonRows] = await pool.query(`SELECT * FROM discount_codes WHERE kode = ? AND aktif = TRUE`, [kode_diskon]);
@@ -196,6 +196,10 @@ exports.bayar = async (req, res) => {
     };
 
     const transaction = await snap.createTransaction(parameter);
+    await pool.query(`
+      INSERT INTO transaksi_keranjang (id_club, order_id, status)
+      VALUES (?, ?, ?)
+    `, [id, order_id, 'pending']);
 
     res.status(200).json({
       message: "Transaksi berhasil dibuat",
@@ -211,5 +215,52 @@ exports.bayar = async (req, res) => {
       message: "Terjadi kesalahan saat memproses pembayaran",
       error: error.message
     });
+  }
+};
+
+// Midtrans Notification Handler
+exports.midtransCallback = async (req, res) => {
+  try {
+    const notif = req.body;
+
+    const orderId = notif.order_id;
+    const transactionStatus = notif.transaction_status;
+    const fraudStatus = notif.fraud_status;
+
+    console.log(`📥 Notifikasi diterima untuk order_id: ${orderId}`);
+    console.log('Status Transaksi:', transactionStatus);
+    console.log('Fraud Status:', fraudStatus);
+
+    // Ambil data transaksi untuk menemukan id_club
+    const [rows] = await pool.query('SELECT id_club FROM transaksi_keranjang WHERE order_id = ?', [orderId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Transaksi tidak ditemukan' });
+    }
+
+    const id_club = rows[0].id_club;
+
+    if (transactionStatus === 'capture' || transactionStatus === 'settlement') {
+      // Transaksi berhasil
+      await pool.query('UPDATE teams SET status_akun = ? WHERE id = ?', ['sudah_bayar', id_club]);
+      await pool.query('UPDATE transaksi_keranjang SET status = ? WHERE order_id = ?', ['success', orderId]);
+      console.log(`✅ Pembayaran sukses, tim ID ${id_club} diaktifkan.`);
+    } else if (
+      transactionStatus === 'cancel' ||
+      transactionStatus === 'deny' ||
+      transactionStatus === 'expire'
+    ) {
+      // Transaksi gagal/batal
+      await pool.query('UPDATE transaksi_keranjang SET status = ? WHERE order_id = ?', ['gagal', orderId]);
+      console.log(`❌ Pembayaran gagal untuk order_id ${orderId}`);
+    } else if (transactionStatus === 'pending') {
+      await pool.query('UPDATE transaksi_keranjang SET status = ? WHERE order_id = ?', ['pending', orderId]);
+      console.log(`⏳ Pembayaran masih pending untuk order_id ${orderId}`);
+    }
+
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('🔥 Error saat memproses notifikasi Midtrans:', error);
+    res.status(500).json({ message: 'Gagal memproses notifikasi' });
   }
 };

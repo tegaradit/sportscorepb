@@ -39,8 +39,6 @@ const fileFilter = (req, file, cb) => {
 };
 
 exports.upload = multer({ storage, fileFilter });
-
-
 exports.addToKeranjang = async (req, res) => {
   const {
     nama_pemain,

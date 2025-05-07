@@ -8,6 +8,6 @@ router.post('/keranjang/add', authMiddleware, keranjangController.upload.single(
 router.get('/keranjang/list', authMiddleware, keranjangController.getKeranjang);
 router.delete('/keranjang/delete', authMiddleware, keranjangController.deleteFromKeranjang);
 router.post('/keranjang/checkout', authMiddleware, keranjangController.checkoutKeranjang);
-router.post('/keranjang/midtrans-callback', keranjangController.midtransCallback);
+router.post('/keranjang/callback', keranjangController.midtransCallback);
 
 module.exports = router;

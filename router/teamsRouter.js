@@ -6,6 +6,8 @@ const midlewareTeams = require('../midleware/verifyTokenTeams')
 router.post('/register', teamController.upload.single('logo_club'), teamController.registerTeam);
 router.post('/login', teamController.loginTeam);
 router.post('/bayar', midlewareTeams, teamController.bayar)
+router.post('/callback', teamController.midtransCallback);
+
 
 
 module.exports = router;
