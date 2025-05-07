@@ -47,7 +47,8 @@ exports.addToKeranjang = async (req, res) => {
     no_punggung,
     posisi,
     nik,
-    nis
+    nis,
+    gender
   } = req.body;
 
   const id_club = req.team.id;
@@ -108,8 +109,8 @@ exports.addToKeranjang = async (req, res) => {
     await pool.query(
       `INSERT INTO keranjang_pemain (
         nama_pemain, tanggal_lahir, tempat_lahir, no_punggung,
-        posisi, id_club, foto_pemain, nik, nis
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        posisi, id_club, foto_pemain, nik, nis,gender
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)`,
       [
         nama_pemain,
         tanggal_lahir,
@@ -119,7 +120,8 @@ exports.addToKeranjang = async (req, res) => {
         id_club,
         foto_pemain,
         nik || null,
-        nis || null
+        nis || null,
+        gender
       ]
     );
 
@@ -224,8 +226,7 @@ exports.checkoutKeranjang = async (req, res) => {
       },
       customer_details: {
         first_name: nama_club,
-        email: username + '@example.com',
-        phone: '08123456789'
+        email: username + '@sportscore.id'
       }
     };
 
@@ -325,8 +326,8 @@ exports.midtransCallback = async (req, res) => {
           `
           INSERT INTO pemain (
             nama_pemain, tanggal_lahir, tempat_lahir, foto_pemain,
-            nik, nisn, no_punggung, posisi
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            nik, nisn, no_punggung, posisi,gender
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
           [
             player.nama_pemain,
@@ -337,6 +338,7 @@ exports.midtransCallback = async (req, res) => {
             nisn,
             player.no_punggung,
             player.posisi,
+            player.gender
           ]
         );
 

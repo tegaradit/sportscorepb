@@ -118,9 +118,16 @@ exports.loginTeam = async (req, res) => {
       { expiresIn: '3h' }
     );
 
-    res.status(200).json({
+    res
+    .cookie('token', token, {
+      httpOnly: true,         // agar tidak bisa diakses JS dari frontend
+      secure: true,          // true kalau pakai HTTPS (di production)
+      maxAge: 3 * 60 * 60 * 1000, // 3 jam
+      samsite:"none"
+    })
+    .status(200)
+    .json({
       message: 'Login berhasil',
-      token,
       team: {
         id: team.id,
         name: team.nama_club,
@@ -129,6 +136,7 @@ exports.loginTeam = async (req, res) => {
         logo_club: team.logo_club
       }
     });
+  
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
