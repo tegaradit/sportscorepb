@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const pemainController = require('../controller/pemainController');
-const midlewareTeams = require('../midleware/verifyTokenTeams')
+const pemainController = require('../../controller/tim/pemainController');
+const midlewareTeams = require('../../midleware/verifyTokenTeams')
 
 router.get('/',midlewareTeams, pemainController.getAllPemain );
 router.post('/getById',midlewareTeams, pemainController.getPemainById );

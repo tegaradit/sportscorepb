@@ -1,4 +1,4 @@
-const pool = require('../config/db');
+const pool = require('../../config/db');
 const jwt = require('jsonwebtoken');
 
 exports.loginAdmin = async (req, res) => {
@@ -23,15 +23,25 @@ exports.loginAdmin = async (req, res) => {
       { expiresIn: '3h' }
     );
 
-    res.status(200).json({
-      message: 'Login admin berhasil',
-      token,
-      admin: {
-        id: admin.id,
-        email: admin.email,
-        role: admin.role
-      }
-    });
+    res
+  .cookie('admin_token', token, {
+    httpOnly: true,
+    secure: true, // ganti ke true kalau pakai HTTPS
+    sameSite: 'none', // atau 'none' kalau beda domain + HTTPS
+    maxAge: 3 * 60 * 60 * 1000 // 3 jam
+  })
+  .status(200)
+  .json({
+    message: 'Login admin berhasil',
+    admin: {
+      id: admin.id,
+      email: admin.email,
+      role: admin.role,
+      name: admin.nama,
+      token
+    }
+  });
+
   } catch (err) {
     console.error('Login admin error:', err);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
