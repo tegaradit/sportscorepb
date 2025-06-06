@@ -15,8 +15,10 @@ module.exports = (req, res, next) => {
     }
 
     req.eo = decoded;
+    req.eo = decoded;
     next();
   } catch (err) {
+    return res.status(401).json({ message: 'Token EO tidak valid', error: err.message });
     return res.status(401).json({ message: 'Token EO tidak valid', error: err.message });
   }
 };
