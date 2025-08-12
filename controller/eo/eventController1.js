@@ -21,6 +21,45 @@ const storage = multer.diskStorage({
 const uploadEventLogo = multer({ storage });
 exports.uploadEventLogo = uploadEventLogo;
 
+
+//createEvent
+exports.createEvent = async (req, res) => {
+  const { nama_event, penyelenggara, lokasi, tanggal_mulai, tanggal_selesai, status, kategory } = req.body;
+  const logo_event = req.file ? req.file.filename : null;
+
+  if (!nama_event || !tanggal_mulai || !tanggal_selesai) {
+    return res.status(400).json({ message: 'Nama event dan tanggal wajib diisi' });
+  }
+
+  try {
+    // Convert tanggal ke format MySQL
+    const mulai = new Date(tanggal_mulai);
+    const selesai = new Date(tanggal_selesai);
+    const formatMySQL = (date) => date.toISOString().slice(0, 19).replace('T', ' ');
+
+    const [result] = await pool.query(`
+      INSERT INTO events (nama_event, penyelenggara, lokasi, tanggal_mulai, tanggal_selesai, status, logo_event, kategory_olahraga)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      nama_event,
+      penyelenggara,
+      lokasi,
+      formatMySQL(mulai),
+      formatMySQL(selesai),
+      status || 'draft',
+      logo_event,
+      kategory
+    ]);
+
+    res.status(201).json({
+      message: 'Event berhasil dibuat',
+      data: { id: result.insertId, nama_event, logo_event }
+    });
+  } catch (error) {
+    console.error('❌ Error createEvent:', error.message);
+    res.status(500).json({ message: 'Gagal membuat event' });
+  }
+};
 // 📌 GET all events
 exports.getAllEvents = async (req, res) => {
   const { search, kategori, bulan } = req.query;
@@ -75,9 +114,7 @@ exports.getAllEvents = async (req, res) => {
     res.status(500).json({ message: 'Gagal mengambil data event' });
   }
 };
-
-
-// 📌 GET event by ID
+//get event by ID
 exports.getEventById = async (req, res) => {
   const { id } = req.params;
   try {
@@ -91,21 +128,89 @@ exports.getEventById = async (req, res) => {
     res.status(500).json({ message: 'Gagal mengambil data event' });
   }
 };
+// 📌 UPDATE event
+exports.updateEvent = async (req, res) => {
+    const { id } = req.params;
+    const { nama_event, penyelenggara, lokasi, tanggal_mulai, tanggal_selesai, status } = req.body;
+    const newLogo = req.file ? req.file.filename : null;
+  
+    try {
+      const [existing] = await pool.query('SELECT * FROM events WHERE id = ?', [id]);
+      if (existing.length === 0) {
+        return res.status(404).json({ message: 'Event tidak ditemukan' });
+      }
+  
+      const current = existing[0];
+  
+      // Hapus logo lama jika ada dan user upload yang baru
+      if (newLogo && current.logo_event) {
+        const logoPath = path.join(__dirname, '../uploads/logo-event', current.logo_event);
+        if (fs.existsSync(logoPath)) {
+          fs.unlinkSync(logoPath);
+        }
+      }
+  
+      // Update ke DB
+      await pool.query(`
+        UPDATE events SET
+          nama_event = ?,
+          penyelenggara = ?,
+          lokasi = ?,
+          tanggal_mulai = ?,
+          tanggal_selesai = ?,
+          status = ?,
+          logo_event = ?
+        WHERE id = ?
+      `, [
+        nama_event || current.nama_event,
+        penyelenggara || current.penyelenggara,
+        lokasi || current.lokasi,
+        tanggal_mulai || current.tanggal_mulai,
+        tanggal_selesai || current.tanggal_selesai,
+        status || current.status,
+        newLogo || current.logo_event,
+        id
+      ]);
+  
+      res.status(200).json({ message: 'Event berhasil diperbarui' });
+    } catch (error) {
+      console.error('❌ Error updateEvent:', error.message);
+      res.status(500).json({ message: 'Gagal memperbarui event' });
+    }
+  }; 
+// 📌 DELETE event
+exports.deleteEvent = async (req, res) => {
+  const { id } = req.params;
 
-exports.getUniqueCategories = async (req, res) => {
   try {
-    const [rows] = await pool.query(`
-      SELECT DISTINCT nama_kategori FROM event_categories ORDER BY nama_kategori ASC
-    `);
-    const kategori = rows.map(row => row.nama_kategori);
-    res.status(200).json(kategori);
+    const [existing] = await pool.query('SELECT * FROM events WHERE id = ?', [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ message: 'Event tidak ditemukan' });
+    }
+
+    await pool.query('DELETE FROM events WHERE id = ?', [id]);
+    res.status(200).json({ message: 'Event berhasil dihapus' });
   } catch (error) {
-    console.error('❌ Error getUniqueCategories:', error.message);
-    res.status(500).json({ message: 'Gagal mengambil kategori' });
+    console.error('❌ Error deleteEvent:', error.message);
+    res.status(500).json({ message: 'Gagal menghapus event' });
   }
 };
+// get all sport categories
+exports.getAllKategoriOlahraga = async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT DISTINCT kategory_olahraga AS nama_kategori
+      FROM events
+      WHERE kategory_olahraga IS NOT NULL AND kategory_olahraga != ''
+    `);
 
-
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error('❌ Error getAllKategoriOlahraga:', error.message);
+    res.status(500).json({ message: 'Gagal mengambil daftar kategori olahraga' });
+  }
+};
+//get full info event
 exports.getFullEventInfo = async (req, res) => {
   const { id } = req.params;
 
@@ -238,66 +343,7 @@ exports.getFullEventInfo = async (req, res) => {
     res.status(500).json({ message: 'Gagal mengambil info lengkap event' });
   }
 };
-
-
-exports.generateSemifinal = async (req, res) => {
-  const { kategoriId } = req.params;
-
-  try {
-    const [kategoriRows] = await pool.query(`SELECT * FROM event_categories WHERE id = ?`, [kategoriId]);
-    if (kategoriRows.length === 0) {
-      return res.status(404).json({ message: 'Kategori tidak ditemukan' });
-    }
-
-    const kategori = kategoriRows[0];
-    if (kategori.tipe_final !== 'final_four') {
-      return res.status(400).json({ message: 'Kategori ini bukan tipe final_four' });
-    }
-
-    const getTopTeams = async (grup, limit = 2) => {
-      const [rows] = await pool.query(`
-        SELECT k.*, et.id_team FROM klasemen k
-        JOIN event_teams et ON k.id_team = et.id_team
-        WHERE et.grup = ? AND et.id_kategori = ?
-        ORDER BY point DESC, goal_masuk - goal_kebobolan DESC
-        LIMIT ?
-      `, [grup, kategoriId, limit]);
-      return rows;
-    };
-
-    const grupA = await getTopTeams('A');
-    const grupB = await getTopTeams('B');
-
-    if (grupA.length < 2 || grupB.length < 2) {
-      return res.status(400).json({ message: 'Jumlah tim di grup tidak mencukupi untuk semifinal' });
-    }
-
-    await pool.query(`
-      INSERT INTO brackets (id_kategori, babak, team_1, team_2, skor_1, skor_2, waktu)
-      VALUES 
-      (?, 'Semi Final', ?, ?, 0, 0, NOW()),
-      (?, 'Semi Final', ?, ?, 0, 0, NOW())
-    `, [
-      kategoriId, grupA[0].id_team, grupB[1].id_team,
-      kategoriId, grupB[0].id_team, grupA[1].id_team
-    ]);
-
-    res.status(201).json({
-      message: 'Semifinal berhasil dibuat',
-      data: [
-        { babak: 'Semi Final', team_1: grupA[0].id_team, team_2: grupB[1].id_team },
-        { babak: 'Semi Final', team_1: grupB[0].id_team, team_2: grupA[1].id_team }
-      ]
-    });
-
-  } catch (error) {
-    console.error('❌ Error generateSemifinal:', error.message);
-    res.status(500).json({ message: 'Gagal generate semifinal' });
-  }
-};
-
-
-// 📌 Search event berdasarkan kategori olahraga
+//search event by sport category
 exports.searchEventByOlahraga = async (req, res) => {
   const { kategori } = req.query;
   try {

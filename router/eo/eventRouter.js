@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const eventController = require('../../controller/eo/eventController');
+const eventController = require('../../controller/eo/eventController1');
 const midleware = require('../../midleware/verifyTokenEventOrganizer');
 
 // Ambil middleware upload dari controller
@@ -24,6 +24,5 @@ router.get('/search-olahraga', eventController.searchEventByOlahraga);
 // 📌 GET 1 event by ID
 router.get('/:id', eventController.getEventById);
 
-router.post('/:kategoriId/generate-semifinal', midleware, eventController.generateSemifinal);
 
 module.exports = router;

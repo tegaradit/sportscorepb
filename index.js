@@ -31,7 +31,6 @@ global.io = io;
 // ================== Middlewares ==================
 app.use(express.json());
 app.use(cookieParser());
-app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(cors({
@@ -68,9 +67,9 @@ app.use('/team', require('./router/tim/teamsRouter'));
 app.use('/pemain', require('./router/tim/pemainRouter'));
 app.use('/keranjang_pemain', require('./router/tim/keranjangRouter'));
 app.use('/midtrans', require('./router/midtransRouter'));
-app.use('/event', require('./router/eo/eventRouter'));
+app.use('/event', require('./router/eo/eventRouter1'));
 app.use('/eventkategory', require('./router/eo/eventKategoryRouter'));
-app.use('/eo', require('./router/eo/eventOrganizerRouter'));
+app.use('/eo', require('./router/eo/eventOrganizerRouterBackup'));
 app.use('/match-tim', require('./router/tim/matchTimRouter'));
 app.use('/match', require('./router/eo/macthRouter'));
 app.use('/staff', require('./router/tim/staffRouter'));
@@ -79,7 +78,12 @@ app.use('/lineup', require('./router/tim/lineupRouter'));
 app.use('/matchEvent', require('./router/eo/matchEventRouter'));
 app.use('/tim-event', require('./router/tim/eventTimRouter'));
 app.use('/matchrun', require('./router/eo/matchRuntimeRouter'));
-
+app.use('/user', require('./router/user/livescoreRouter'));
+app.use('/news', require('./router/user/newsViewRouter'));
+app.use('/news-admin', require('./router/admin/newsManage'));
+app.use('/team-view', require('./router/user/teamViewRouter'))
+app.use('/pemain-view', require('./router/user/pemainViewRouter'));
+app.use('/contact', require('./router/user/ContactRouter'));
 
 // ================== Socket IO ==================
 io.on("connection", (socket) => {
@@ -87,6 +91,7 @@ io.on("connection", (socket) => {
 
   // ⛔ Saat client disconnect
   socket.on('disconnect', () => {
+     kategoriJoinCooldown.delete(socket.id);
     console.log(`❌ Socket disconnected: ${socket.id}`);
   });
 

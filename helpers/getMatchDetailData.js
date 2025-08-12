@@ -1,25 +1,39 @@
 const pool = require('../config/db');
-const { getMatchState } = require('./matchRuntimeManager');
+const { getMatchState } = require('../utils/matchRuntimeManager');
 
 async function getMatchDetailData(id) {
+  console.log(`[Helper] Mengambil detail data untuk Match ID: ${id}`); // Log
   const [[match]] = await pool.query(`
     SELECT m.*, 
            t1.nama_club AS team1_name, t1.logo_club AS team1_logo,
-           t2.nama_club AS team2_name, t2.logo_club AS team2_logo
+           t2.nama_club AS team2_name, t2.logo_club AS team2_logo,
+           ec.durasi_babak, ec.jumlah_babak -- Tambahkan ini untuk durasi_babak kategori
     FROM matches m
     JOIN teams t1 ON m.team_1 = t1.id
     JOIN teams t2 ON m.team_2 = t2.id
+    LEFT JOIN event_categories ec ON m.id_kategori = ec.id -- Join kategori untuk durasi
     WHERE m.id = ?
   `, [id]);
 
-  if (!match) throw new Error('Match tidak ditemukan');
+  if (!match) {
+    console.log(`[Helper] Match ID ${id} tidak ditemukan.`); // Log
+    throw new Error('Match tidak ditemukan');
+  }
 
   const runtimeState = getMatchState(id);
+  console.log(`[Helper] Runtime state untuk Match ID ${id}:`, runtimeState); // Log runtimeState
+
   const runtime = {
     waktu: runtimeState?.waktu ?? 0,
     babak: runtimeState?.babak ?? match.babak,
     status: runtimeState?.status ?? match.status
   };
+
+  // Tambahkan durasi_babak dari kategori jika tidak ada di match
+  const durasiBabakFinal = match.durasi_babak ?? match.kategori_durasi ?? 20; // Default 20 menit
+  const jumlahBabakFinal = match.jumlah_babak ?? match.kategori_jumlah ?? 2; // Default 2 babak
+
+  // ... (kode untuk lineup, staff, events tetap sama) ...
 
   const [lineupRows] = await pool.query(`
     SELECT ml.*, p.nama_pemain, p.foto_pemain, pe.id_team, t.nama_club
@@ -44,10 +58,12 @@ async function getMatchDetailData(id) {
 
   const [staffRows] = await pool.query(`
     SELECT s.*, st.id_team
-    FROM staff_teams st
-    JOIN staff s ON st.id_staff = s.id
-    WHERE st.id_team IN (?, ?)
-  `, [match.team_1, match.team_2]);
+    FROM match_staff_lineup msl
+    JOIN staff_event se ON msl.id_staff_event = se.id
+    JOIN staff s ON se.id_staff = s.id
+    WHERE msl.id_match = ?
+  `, [id]);
+
 
   const staff = { team_1: [], team_2: [] };
   for (const s of staffRows) {
@@ -102,7 +118,9 @@ async function getMatchDetailData(id) {
     },
     lineup,
     staff,
-    events
+    events,
+    durasi_babak: durasiBabakFinal, // Pastikan ini dikirim
+    jumlah_babak: jumlahBabakFinal // Pastikan ini dikirim
   };
 }
 

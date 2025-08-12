@@ -29,6 +29,7 @@ router.post('/update-klasemen', authMiddleware, matchController.updateKlasemenFr
 router.post('/klasemen/by-kategori', matchController.getKlasemenByKategori);
 router.post('/selesai', authMiddleware, matchController.selesaiMatch);
 router.post('/selesaikan', authMiddleware, matchController.selesaikanMatchDanUpdateKlasemen);
+router.get('/bracket', matchController.getBrackets)
 router.get('/:id/detail', matchController.getMatchDetail);
 
 
